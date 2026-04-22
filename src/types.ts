@@ -11,6 +11,15 @@ export interface GlyphData {
   description: string;
   category: string;
   createdAt: number;
+  atmosphere?: AtmosphereData;
+}
+
+export interface AtmosphereData {
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  motionType: 'nebula' | 'vortex' | 'pulse' | 'flow';
+  glitchFrequency: number; // 0-100
 }
 
 export interface SynthesisParams {
@@ -19,6 +28,7 @@ export interface SynthesisParams {
   curvature: number;
   theme: GlyphTheme;
   material: GlyphMaterial;
+  atmospherePrompt: string; // User entered style for the background
   color: string;
   showParticles: boolean;
   particleSpeed: number;

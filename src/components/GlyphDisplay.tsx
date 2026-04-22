@@ -311,7 +311,6 @@ export default function GlyphDisplay({
                 fill="none"
                 stroke={styles.stroke}
                 strokeWidth={styles.strokeWidth}
-                strokeDasharray={styles.dash || undefined}
                 strokeLinecap={theme === 'organic' ? 'round' : 'square'}
                 strokeLinejoin={theme === 'organic' ? 'round' : 'miter'}
                 initial={{ pathLength: 0, opacity: 0 }}

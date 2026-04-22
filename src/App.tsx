@@ -5,22 +5,26 @@
 
 import { useState, FormEvent, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Sparkles, History, Search, ArrowRight, X, Layers, Download, Loader2, RefreshCw } from "lucide-react";
+import { Sparkles, History, Search, ArrowRight, X, Layers, Download, Loader2, RefreshCw, AlertCircle, Copy, Check, ChevronLeft, ChevronRight, Zap, Trash2 } from "lucide-react";
 import { GlyphData, SynthesisParams, GlyphTheme, GlyphMaterial } from "./types";
-import { generateGlyph } from "./services/geminiService";
+import { generateGlyph, generateVariations } from "./services/geminiService";
 import GlyphDisplay from "./components/GlyphDisplay";
 import Library from "./components/Library";
 import gifshot from "gifshot";
+import DynamicBackground from "./components/DynamicBackground";
 
 export default function App() {
   const [word, setWord] = useState("");
   const [currentGlyph, setCurrentGlyph] = useState<GlyphData | null>(null);
   const [history, setHistory] = useState<GlyphData[]>([]);
+  const [variations, setVariations] = useState<GlyphData[]>([]);
+  const [isGeneratingVariations, setIsGeneratingVariations] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [loadingStage, setLoadingStage] = useState(0);
   const [activeTab, setActiveTab] = useState<'system' | 'library'>('system');
   const [newGlyphPulse, setNewGlyphPulse] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const synthesisStages = [
     "Scanning Spectrum",
@@ -46,6 +50,7 @@ export default function App() {
     curvature: 12,
     theme: 'technical',
     material: 'chrome',
+    atmospherePrompt: '',
     color: '#ffffff',
     showParticles: true,
     particleSpeed: 50,
@@ -90,19 +95,39 @@ export default function App() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!word.trim() || isLoading) return;
+    setError(null);
+
+    const manifestWord = word.trim();
+    if (!manifestWord) {
+      setError("Please manifest a word to begin synthesis.");
+      return;
+    }
+
+    if (manifestWord.length > 20) {
+      setError("Input exceeds resonance capacity (Max 20 chars).");
+      return;
+    }
+
+    if (isLoading) return;
 
     setIsLoading(true);
     try {
-      const glyph = await generateGlyph(word.trim(), params);
+      const glyph = await generateGlyph(manifestWord, params);
       setCurrentGlyph(glyph);
       const newHistory = [glyph, ...history].slice(0, 50);
       setHistory(newHistory);
       localStorage.setItem("glyph-history", JSON.stringify(newHistory));
       setWord("");
       setNewGlyphPulse(true);
-    } catch (error) {
-      console.error("Generation failed:", error);
+    } catch (err: any) {
+      console.error("Generation failed:", err);
+      if (err?.message?.includes("API key")) {
+        setError("System Auth Failure: Invalid spectrum key.");
+      } else if (err?.message?.includes("quota")) {
+        setError("Resource Exhausted: Spectrum bandwidth exceeded.");
+      } else {
+        setError("Synthesis Interrupted: External interference detected.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -119,6 +144,31 @@ export default function App() {
     localStorage.setItem("glyph-history", JSON.stringify(newHistory));
     if (currentGlyph && currentGlyph.id === id) {
       setCurrentGlyph(null);
+    }
+  };
+
+  const handleGenerateVariations = async () => {
+    if (!currentGlyph || isGeneratingVariations) return;
+    setIsGeneratingVariations(true);
+    try {
+      const vars = await generateVariations(currentGlyph, params);
+      setVariations(vars);
+    } catch (err: any) {
+      console.error("Variation generation failed:", err);
+      setError("Variation Manifestation Failure: Distortion detected.");
+    } finally {
+      setIsGeneratingVariations(false);
+    }
+  };
+
+  const selectVariation = (v: GlyphData) => {
+    setCurrentGlyph(v);
+    setVariations([]);
+    const isNew = !history.find(h => h.id === v.id);
+    if (isNew) {
+      const newHistory = [v, ...history].slice(0, 50);
+      setHistory(newHistory);
+      localStorage.setItem("glyph-history", JSON.stringify(newHistory));
     }
   };
 
@@ -319,9 +369,17 @@ export default function App() {
     const etherealGlow = params.material === 'ethereal' ? 'filter: url(#etherealGlow);' : '';
     const activeGlow = params.material === 'iridescent' ? iriGlow : params.material === 'ethereal' ? etherealGlow : 'filter: url(#chromeGlow);';
 
+    const atmosGrad = currentGlyph.atmosphere ? `
+    <radialGradient id="atmosGrad" cx="50%" cy="30%" r="70%" fx="50%" fy="30%">
+      <stop offset="0%" style="stop-color:${currentGlyph.atmosphere.primaryColor};stop-opacity:0.3" />
+      <stop offset="60%" style="stop-color:${currentGlyph.atmosphere.secondaryColor};stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:1" />
+    </radialGradient>` : '';
+
     const svgString = `
 <svg width="1000" height="${isTransSVG ? 1000 : 1400}" viewBox="0 0 1000 ${isTransSVG ? 1000 : 1400}" xmlns="http://www.w3.org/2000/svg">
   <defs>
+    ${atmosGrad}
     <linearGradient id="chromeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
       <stop offset="25%" style="stop-color:${baseColor};stop-opacity:1" />
@@ -383,7 +441,7 @@ export default function App() {
       <stop offset="100%" style="stop-color:#AA771C;stop-opacity:1" />
     </linearGradient>
   </defs>
-  ${!isTransSVG ? `<rect width="1000" height="1400" fill="#000" />` : ''}
+  ${!isTransSVG ? `<rect width="1000" height="1400" fill="${currentGlyph.atmosphere ? 'url(#atmosGrad)' : '#000'}" />` : ''}
   <g transform="scale(10)">
     <g stroke="${materialStroke}" style="${activeGlow}" stroke-width="${sw}" stroke-linecap="${cap}" stroke-linejoin="${join}" fill="none" ${dash ? `stroke-dasharray="${dash}"` : ''}>
       ${currentGlyph.paths.map(p => `<path d="${p}" />`).join('\n      ')}
@@ -430,24 +488,60 @@ export default function App() {
       canvas.width = width;
       canvas.height = height;
       const frames: string[] = [];
+      
+      const atmos = currentGlyph.atmosphere;
+      const pathLengths = currentGlyph.paths.map(pathStr => {
+        const svgPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        svgPath.setAttribute('d', pathStr);
+        try {
+          return svgPath.getTotalLength();
+        } catch (e) {
+          return 100; // Fallback
+        }
+      });
 
       for (let i = 0; i <= frameCount; i++) {
         const progress = i / frameCount;
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, width, height);
+        
+        // Draw Atmosphere Background
+        if (atmos) {
+          const grad = ctx.createRadialGradient(width/2, height/3, 0, width/2, height/3, width);
+          grad.addColorStop(0, atmos.primaryColor + '44');
+          grad.addColorStop(0.5, atmos.secondaryColor + '22');
+          grad.addColorStop(1, '#000000');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, width, height);
+          
+          // Add some "Epic" accent light
+          ctx.fillStyle = atmos.accentColor + '11';
+          ctx.beginPath();
+          ctx.arc(width * (0.5 + Math.sin(progress * Math.PI) * 0.2), height/4, width/2, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = '#000';
+          ctx.fillRect(0, 0, width, height);
+        }
 
         ctx.save();
         ctx.scale(width / 100, width / 100); 
         applyCanvasMaterial(ctx, width);
 
-        currentGlyph.paths.forEach((pathStr) => {
+        currentGlyph.paths.forEach((pathStr, idx) => {
           const p = new Path2D(pathStr);
-          ctx.globalAlpha = Math.min(1, progress * 1.5);
+          const length = pathLengths[idx];
+          
+          // Animate drawing effect
+          ctx.setLineDash([length, length]);
+          // Progress 0-0.7 for individual paths, staggered by index
+          const staggeredProgress = Math.max(0, Math.min(1, (progress * 1.5) - (idx * 0.1)));
+          ctx.lineDashOffset = length * (1 - staggeredProgress);
+          
+          ctx.globalAlpha = Math.min(1, staggeredProgress * 2);
           ctx.stroke(p);
         });
         ctx.restore();
 
-        // Direct Canvas Banner (No foreignObject)
+        // Direct Canvas Banner
         drawBanner(ctx, width, height);
 
         ctx.fillStyle = baseColor;
@@ -464,13 +558,13 @@ export default function App() {
 
     if (format === 'gif') {
       setIsExporting(true);
-      const frames = await renderFrames(500, 700, 20);
+      const frames = await renderFrames(500, 700, 25); // Slighly more frames
       gifshot.createGIF({
         images: frames,
         gifWidth: 500,
         gifHeight: 700,
-        interval: 0.1,
-        numFrames: 20,
+        interval: 0.08,
+        numFrames: 25,
       }, (obj: any) => {
         if (!obj.error) {
           const link = document.createElement('a');
@@ -493,6 +587,17 @@ export default function App() {
       const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
       const chunks: Blob[] = [];
 
+      const atmos = currentGlyph.atmosphere;
+      const pathLengths = currentGlyph.paths.map(pathStr => {
+        const svgPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        svgPath.setAttribute('d', pathStr);
+        try {
+          return svgPath.getTotalLength();
+        } catch (e) {
+          return 100;
+        }
+      });
+
       recorder.ondataavailable = (e) => chunks.push(e.data);
       recorder.onstop = () => {
         const blob = new Blob(chunks, { type: 'video/webm' });
@@ -505,23 +610,45 @@ export default function App() {
       };
 
       recorder.start();
-      const duration = 2000;
+      const duration = 3000; // Longer for epic feel
       const startTime = performance.now();
 
       const animate = async (now: number) => {
         const elapsed = now - startTime;
         const progress = Math.min(1, elapsed / duration);
 
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, 1000, 1400);
+        // Draw Atmosphere Background
+        if (atmos) {
+          const grad = ctx.createRadialGradient(500, 400, 0, 500, 400, 1000);
+          grad.addColorStop(0, atmos.primaryColor + '44');
+          grad.addColorStop(0.5, atmos.secondaryColor + '22');
+          grad.addColorStop(1, '#000000');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, 1000, 1400);
+          
+          // Accent glow moving with progress
+          ctx.fillStyle = atmos.accentColor + '11';
+          ctx.beginPath();
+          ctx.arc(500 + Math.sin(progress * 6) * 100, 400, 600, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = '#000';
+          ctx.fillRect(0, 0, 1000, 1400);
+        }
 
         ctx.save();
         ctx.scale(10, 10);
         applyCanvasMaterial(ctx, 1000);
 
-        currentGlyph.paths.forEach((pathStr) => {
+        currentGlyph.paths.forEach((pathStr, idx) => {
           const p = new Path2D(pathStr);
-          ctx.globalAlpha = Math.min(1, progress * 1.5);
+          const length = pathLengths[idx];
+          
+          const staggeredProgress = Math.max(0, Math.min(1, (progress * 1.4) - (idx * 0.08)));
+          ctx.setLineDash([length, length]);
+          ctx.lineDashOffset = length * (1 - staggeredProgress);
+          
+          ctx.globalAlpha = Math.min(1, staggeredProgress * 2);
           ctx.stroke(p);
         });
         ctx.restore();
@@ -555,7 +682,16 @@ export default function App() {
     canvas.height = isTransPNG ? 1000 : 1400;
 
     if (!isTransPNG) {
-      ctx.fillStyle = '#000';
+      const atmos = currentGlyph.atmosphere;
+      if (atmos) {
+        const grad = ctx.createRadialGradient(500, 400, 0, 500, 400, 1000);
+        grad.addColorStop(0, atmos.primaryColor + '44');
+        grad.addColorStop(0.5, atmos.secondaryColor + '22');
+        grad.addColorStop(1, '#000000');
+        ctx.fillStyle = grad;
+      } else {
+        ctx.fillStyle = '#000';
+      }
       ctx.fillRect(0, 0, 1000, 1400);
     }
 
@@ -594,6 +730,11 @@ export default function App() {
 
   return (
     <div className="h-[100dvh] w-full flex flex-col bg-elegant-bg text-elegant-ink font-sans overflow-hidden">
+      <DynamicBackground 
+        theme={params.theme} 
+        material={params.material} 
+        atmosphere={currentGlyph?.atmosphere}
+      />
       
       {/* Mobile Portrait Orientation Lock Overlay */}
       <div className="md:hidden fixed inset-0 z-[100] bg-black flex items-center justify-center p-8 landscape:hidden">
@@ -616,7 +757,7 @@ export default function App() {
       </div>
 
       {/* Top Navigation */}
-      <nav className="h-14 shrink-0 border-b border-white/10 px-4 md:px-6 flex items-center justify-between bg-elegant-surface relative z-30">
+      <nav className="h-14 shrink-0 border-b border-white/10 px-4 md:px-6 flex items-center justify-between bg-elegant-surface/80 backdrop-blur-xl relative z-30">
         <div className="flex items-center gap-3 md:gap-4">
           <div className="w-5 h-5 md:w-6 md:h-6 border-2 border-blue-500 rotate-45 flex items-center justify-center shrink-0">
             <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-blue-500"></div>
@@ -733,19 +874,50 @@ export default function App() {
         {activeTab === 'system' ? (
           <>
             {/* Left Sidebar: Controls */}
-            <aside className="w-[300px] lg:w-[380px] shrink-0 border-r border-white/5 bg-elegant-surface px-6 lg:px-8 py-6 flex flex-col gap-4 lg:gap-5 relative z-20 overflow-y-auto custom-scrollbar">
+            <aside className="w-[300px] lg:w-[380px] shrink-0 border-r border-white/5 bg-elegant-surface/80 backdrop-blur-xl px-6 lg:px-8 py-6 flex flex-col gap-4 lg:gap-5 relative z-20 overflow-y-auto custom-scrollbar">
           <div className="space-y-3">
             <label className="block text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-bold italic">Source String</label>
             <form onSubmit={handleSubmit}>
               <input
                 type="text"
                 value={word}
-                onChange={(e) => setWord(e.target.value)}
+                onChange={(e) => {
+                  setWord(e.target.value);
+                  if (error) setError(null);
+                }}
                 placeholder="MANIFEST WORD..."
-                className="w-full bg-black/40 border border-white/10 rounded-none p-3 text-sm font-mono focus:border-blue-500 outline-none text-white tracking-[0.2em] uppercase placeholder:text-zinc-700"
+                className={`w-full bg-black/40 border rounded-none p-3 text-sm font-mono focus:border-blue-500 outline-none text-white tracking-[0.2em] uppercase placeholder:text-zinc-700 transition-colors ${
+                  error ? 'border-red-500' : 'border-white/10'
+                }`}
                 disabled={isLoading}
               />
             </form>
+
+            <div className="mt-4 space-y-3">
+              <label className="block text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-bold italic">Atmosphere Manifestation</label>
+              <input
+                type="text"
+                value={params.atmospherePrompt}
+                onChange={(e) => updateParam('atmospherePrompt', e.target.value)}
+                placeholder="EPIC STYLE... (e.g. CYBERPUNK VORTEX)"
+                className="w-full bg-black/40 border border-white/10 rounded-none p-3 text-[10px] font-mono focus:border-blue-500 outline-none text-white tracking-[0.1em] uppercase placeholder:text-zinc-700 transition-colors"
+                disabled={isLoading}
+              />
+            </div>
+            
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="flex items-center gap-2 text-[10px] text-red-400 font-bold tracking-wider leading-relaxed px-1"
+                >
+                  <AlertCircle className="w-3 h-3 shrink-0" />
+                  <span className="uppercase">{error}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           <div className="space-y-4">
@@ -919,7 +1091,7 @@ export default function App() {
           <div className="mt-auto pt-4 pb-2">
             <button 
               onClick={handleSubmit}
-              disabled={!word.trim() || isLoading}
+              disabled={!word.trim() || isLoading || isGeneratingVariations}
               className="w-full py-4 bg-white text-black text-[10px] uppercase font-bold tracking-[0.3em] hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed group flex flex-col items-center justify-center gap-1 relative overflow-hidden"
             >
               {isLoading && (
@@ -950,11 +1122,100 @@ export default function App() {
                 </motion.span>
               )}
             </button>
+
+            {currentGlyph && (
+              <button 
+                onClick={handleGenerateVariations}
+                disabled={isLoading || isGeneratingVariations}
+                className="w-full mt-2 py-3 bg-black/40 border border-white/10 text-white text-[9px] uppercase font-bold tracking-[0.2em] hover:bg-white hover:text-black transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isGeneratingVariations ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Zap className="w-3 h-3" />
+                )}
+                {isGeneratingVariations ? 'Manifesting Iterations...' : 'Manifest Iterations'}
+              </button>
+            )}
           </div>
         </aside>
 
         {/* Center Workspace */}
-        <section className="flex-1 relative bg-black flex flex-col p-0 min-w-[300px] overflow-y-auto custom-scrollbar">
+        <section className="flex-1 relative bg-transparent flex flex-col p-0 min-w-[300px] overflow-y-auto custom-scrollbar">
+          <AnimatePresence>
+            {variations.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-50 bg-black/90 backdrop-blur-2xl flex flex-col items-center justify-center p-6 lg:p-12"
+              >
+                <div className="max-w-6xl w-full flex flex-col gap-8 h-full">
+                  <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                    <div className="space-y-1">
+                      <h2 className="text-xl font-serif italic text-white">Visual Iterations</h2>
+                      <p className="text-[10px] text-zinc-500 uppercase tracking-[0.3em] font-mono">Select one fragment to preserve // Others will be discarded</p>
+                    </div>
+                    <button 
+                      onClick={() => setVariations([])}
+                      className="p-2 hover:bg-white/5 rounded-full text-zinc-500 hover:text-white transition-colors"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
+                  
+                  <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 overflow-y-auto custom-scrollbar py-4 px-2">
+                    {variations.map((v, idx) => (
+                      <motion.div
+                        key={v.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.1 }}
+                        className="group relative flex flex-col bg-white/5 border border-white/10 hover:border-blue-500/50 transition-all p-4 lg:p-6 cursor-pointer overflow-hidden"
+                        onClick={() => selectVariation(v)}
+                      >
+                        <div className="flex-1 flex items-center justify-center mb-6 min-h-[200px]">
+                          <svg
+                            viewBox="0 0 100 100"
+                            className="w-full max-h-[180px] drop-shadow-[0_0_15px_rgba(255,255,255,0.1)] group-hover:drop-shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path 
+                              d={v.paths.join(' ')} 
+                              fill="none" 
+                              stroke="white" 
+                              strokeWidth="1.2" 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round" 
+                            />
+                          </svg>
+                        </div>
+                        
+                        <div className="space-y-3 z-10 relative">
+                          <div className="flex justify-between items-start">
+                            <h3 className="text-sm font-bold tracking-widest uppercase text-white truncate mr-2">{v.name}</h3>
+                            <span className="text-[8px] font-mono text-blue-400 border border-blue-400/30 px-1.5 py-0.5 shrink-0">VAR-0{idx+1}</span>
+                          </div>
+                          <p className="text-[10px] text-zinc-400 font-serif italic leading-relaxed line-clamp-3">
+                            "{v.description}"
+                          </p>
+                          <div className="pt-4 flex justify-center">
+                            <button className="text-[10px] uppercase font-bold tracking-[0.2em] text-white opacity-0 group-hover:opacity-100 transition-opacity bg-blue-600 px-6 py-2">
+                              Preserve Fragment
+                            </button>
+                          </div>
+                        </div>
+                        
+                        {/* Shimmer effect on hover */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/0 via-white/0 to-white/0 group-hover:via-white/5 group-hover:transition-all duration-700 pointer-events-none" />
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="absolute inset-0 opacity-10 grid-pattern pointer-events-none sticky top-0"></div>
           
           <div className="flex-1 flex flex-col items-center justify-center relative min-h-max py-2 lg:py-4 w-full">
@@ -984,7 +1245,7 @@ export default function App() {
         </section>
 
         {/* Right Sidebar: Library */}
-        <aside className="hidden xl:flex w-[100px] lg:w-[120px] shrink-0 bg-elegant-surface border-l border-white/5 p-3 flex-col overflow-hidden relative z-20">
+        <aside className="hidden xl:flex w-[100px] lg:w-[120px] shrink-0 bg-elegant-surface/80 backdrop-blur-xl border-l border-white/5 p-3 flex-col overflow-hidden relative z-20">
           <label className="block text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-6 font-bold italic text-center">Recent</label>
           <div className="flex-1 overflow-y-auto custom-scrollbar">
             <div className="grid grid-cols-1 gap-3">
