@@ -45,14 +45,17 @@ export default function GlyphDisplay({
 
   const getThemeStyles = () => {
     const activeStroke = material === 'chrome' ? `url(#chrome-${glyph?.id})` 
-                       : material === 'holographic' ? `url(#holo-${glyph?.id})`
+                       : material === 'iridescent' ? `url(#iri-${glyph?.id})`
+                       : material === 'ethereal' ? `url(#ethereal-${glyph?.id})`
                        : baseColor;
     
-    const intenseGlow = material === 'neon'
-        ? `drop-shadow(0 0 12px ${baseColor}) drop-shadow(0 0 30px ${baseColor}) drop-shadow(0 0 60px ${baseColor})`
-        : theme === 'mystic' 
-            ? `drop-shadow(0 0 10px ${baseColor}) drop-shadow(0 0 25px ${baseColor}) drop-shadow(0 0 40px ${baseColor})`
-            : `drop-shadow(0 0 8px ${baseColor}) drop-shadow(0 0 15px ${baseColor})`;
+    const intenseGlow = material === 'ethereal'
+        ? `drop-shadow(0 10px 15px ${baseColor}66) drop-shadow(0 25px 40px ${baseColor}33) drop-shadow(0 50px 80px ${baseColor}1A)`
+        : material === 'iridescent'
+            ? `drop-shadow(0 0 15px #FF00FF) drop-shadow(0 0 30px #00FFFF) drop-shadow(0 0 50px #55FF00)`
+            : theme === 'mystic' 
+                ? `drop-shadow(0 0 10px ${baseColor}) drop-shadow(0 0 25px ${baseColor}) drop-shadow(0 0 40px ${baseColor})`
+                : `drop-shadow(0 0 8px ${baseColor}) drop-shadow(0 0 15px ${baseColor})`;
 
     switch (theme) {
       case 'minimal':
@@ -231,7 +234,7 @@ export default function GlyphDisplay({
           scale: 1.05,
         }}
         transition={{ type: "spring", stiffness: 300, damping: 20 }}
-        className="relative w-full max-w-[400px] aspect-square flex items-center justify-center cursor-crosshair group/glyph mt-4"
+        className="relative w-full max-w-[320px] md:max-w-[360px] aspect-square flex items-center justify-center cursor-crosshair group/glyph mt-4"
       >
         {/* Hover Glow Effect */}
         <motion.div 
@@ -271,17 +274,35 @@ export default function GlyphDisplay({
               <stop offset="75%" stopColor={baseColor} />
               <stop offset="100%" stopColor="#050505" />
             </linearGradient>
-            <linearGradient id={`holo-${glyph.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#00f3ff" />
-              <stop offset="20%" stopColor={baseColor} />
-              <stop offset="50%" stopColor="#ff00ea" />
-              <stop offset="80%" stopColor={baseColor} />
-              <stop offset="100%" stopColor="#00f3ff" />
+            <linearGradient id={`iri-${glyph.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#ff00ea" />
+              <stop offset="20%" stopColor="#00f3ff" />
+              <stop offset="40%" stopColor="#00ff00" />
+              <stop offset="60%" stopColor="#ffff00" />
+              <stop offset="80%" stopColor="#ff0000" />
+              <stop offset="100%" stopColor="#ff00ea" />
             </linearGradient>
+            <linearGradient id={`ethereal-${glyph.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor={baseColor} stopOpacity="1" />
+              <stop offset="60%" stopColor={baseColor} stopOpacity="0.4" />
+              <stop offset="100%" stopColor={baseColor} stopOpacity="0" />
+            </linearGradient>
+            <filter id={`ethereal-fog-${glyph.id}`} x="-100%" y="-100%" width="300%" height="400%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="0.5, 12" result="fog" />
+              <feOffset in="fog" dx="0" dy="15" result="offsetFog" />
+              <feComponentTransfer in="offsetFog">
+                <feFuncA type="linear" slope="0.6" />
+              </feComponentTransfer>
+              <feMerge>
+                <feMergeNode />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
           </defs>
           <motion.g
             animate={{ opacity: [0.1, 1, 0.1] }}
             transition={{ duration: 3 / humMultiplier, repeat: Infinity, ease: "easeInOut" }}
+            style={{ filter: material === 'ethereal' ? `url(#ethereal-fog-${glyph.id})` : undefined }}
           >
             {glyph.paths.map((path, index) => (
               <motion.path
@@ -324,13 +345,13 @@ export default function GlyphDisplay({
         initial={{ opacity: 0, y: 20, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ delay: 1.5, duration: 0.8, type: "spring", bounce: 0.4 }}
-        className="mt-8 w-full max-w-lg relative z-20 mb-12 group"
+        className="mt-4 w-full max-w-md relative z-20 mb-4 group"
       >
         {/* Legendary Ambient Glow */}
-        <div className="absolute inset-0 bg-gradient-to-r from-yellow-600/20 via-amber-400/20 to-yellow-600/20 blur-2xl opacity-40 group-hover:opacity-80 transition-opacity duration-1000 pointer-events-none"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-yellow-600/10 via-amber-400/10 to-yellow-600/10 blur-2xl opacity-40 group-hover:opacity-80 transition-opacity duration-1000 pointer-events-none"></div>
         
         {/* Core Plate Structure */}
-        <div className="relative p-[1px] bg-gradient-to-r from-yellow-900/80 via-yellow-200 to-yellow-900/80 shadow-[0_0_30px_rgba(252,211,77,0.15)] overflow-hidden">
+        <div className="relative p-[1px] bg-gradient-to-r from-yellow-900/80 via-yellow-200 to-yellow-900/80 shadow-[0_0_20px_rgba(252,211,77,0.1)] overflow-hidden">
           
           {/* Sweeping Shimmer Animation */}
           <motion.div 
@@ -340,35 +361,35 @@ export default function GlyphDisplay({
           />
 
           {/* Inner Dark Slate Container */}
-          <div className="relative bg-black/90 backdrop-blur-xl p-6 sm:p-8 flex flex-col items-center text-center border border-white/5 h-full w-full">
+          <div className="relative bg-black/90 backdrop-blur-xl p-4 sm:p-6 flex flex-col items-center text-center border border-white/5 h-full w-full">
             
             {/* Top Ornamental Frame Line */}
-            <div className="flex items-center gap-3 w-full justify-center mb-5 opacity-90">
-              <div className="h-[1px] w-12 sm:w-20 bg-gradient-to-l from-yellow-500 to-transparent"></div>
-              <div className="w-1.5 h-1.5 rotate-45 bg-yellow-400 shadow-[0_0_10px_theme(colors.yellow.400)]"></div>
-              <div className="h-[1px] w-12 sm:w-20 bg-gradient-to-r from-yellow-500 to-transparent"></div>
+            <div className="flex items-center gap-3 w-full justify-center mb-3 opacity-90">
+              <div className="h-[1px] w-12 sm:w-16 bg-gradient-to-l from-yellow-500 to-transparent"></div>
+              <div className="w-1.5 h-1.5 rotate-45 bg-yellow-400 shadow-[0_0_8px_theme(colors.yellow.400)]"></div>
+              <div className="h-[1px] w-12 sm:w-16 bg-gradient-to-r from-yellow-500 to-transparent"></div>
             </div>
 
             {/* Glowing Golden Title */}
-            <h4 className="text-[10px] sm:text-xs text-transparent bg-clip-text bg-gradient-to-b from-yellow-100 via-yellow-400 to-yellow-600 uppercase tracking-[0.3em] font-extrabold mb-1 drop-shadow-md">
+            <h4 className="text-[10px] sm:text-[11px] text-transparent bg-clip-text bg-gradient-to-b from-yellow-100 via-yellow-400 to-yellow-600 uppercase tracking-[0.3em] font-extrabold mb-0.5 drop-shadow-md">
               Semantic Extraction
             </h4>
             
             {/* Sub-ID Registry Tag */}
-            <span className="text-[8px] text-yellow-600/60 font-mono tracking-[0.2em] mb-5">
+            <span className="text-[7px] text-yellow-600/60 font-mono tracking-[0.2em] mb-3">
               REGISTRY_ID // {glyph.id.toUpperCase()}
             </span>
             
             {/* The Manifested Idea Text */}
-            <p className="text-xs sm:text-sm leading-relaxed text-yellow-50/90 font-serif italic text-balance drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] max-w-[90%]">
+            <p className="text-[11px] sm:text-xs leading-relaxed text-yellow-50/90 font-serif italic text-balance drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] max-w-[90%]">
               "{glyph.description}"
             </p>
 
             {/* Bottom Ornamental Frame Line */}
-            <div className="flex items-center gap-2 w-full justify-center mt-6 opacity-60">
-              <div className="h-[2px] w-6 bg-yellow-800/80"></div>
+            <div className="flex items-center gap-2 w-full justify-center mt-4 opacity-60">
+              <div className="h-[2px] w-4 bg-yellow-800/80"></div>
               <div className="w-1 h-1 bg-yellow-600 rounded-full"></div>
-              <div className="h-[2px] w-6 bg-yellow-800/80"></div>
+              <div className="h-[2px] w-4 bg-yellow-800/80"></div>
             </div>
             
           </div>

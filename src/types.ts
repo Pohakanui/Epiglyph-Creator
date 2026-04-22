@@ -26,4 +26,4 @@ export interface SynthesisParams {
 }
 
 export type GlyphTheme = 'minimal' | 'mystic' | 'technical' | 'organic';
-export type GlyphMaterial = 'chrome' | 'neon' | 'holographic';
+export type GlyphMaterial = 'chrome' | 'ethereal' | 'iridescent';

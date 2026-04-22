@@ -5,7 +5,7 @@
 
 import { useState, FormEvent, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Sparkles, History, Search, ArrowRight, X, Layers, Download, Loader2 } from "lucide-react";
+import { Sparkles, History, Search, ArrowRight, X, Layers, Download, Loader2, RefreshCw } from "lucide-react";
 import { GlyphData, SynthesisParams, GlyphTheme, GlyphMaterial } from "./types";
 import { generateGlyph } from "./services/geminiService";
 import GlyphDisplay from "./components/GlyphDisplay";
@@ -140,6 +140,9 @@ export default function App() {
       ctx.lineWidth = sw;
       ctx.lineCap = cap;
       ctx.lineJoin = join;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.shadowBlur = 0;
       if (dash) ctx.setLineDash(dash.split(',').map(Number));
 
       if (params.material === 'chrome') {
@@ -154,25 +157,29 @@ export default function App() {
         ctx.strokeStyle = grad;
         ctx.shadowColor = baseColor === 'white' ? 'rgba(255,255,255,0.8)' : baseColor;
         ctx.shadowBlur = 12;
-      } else if (params.material === 'holographic') {
+      } else if (params.material === 'iridescent') {
         const grad = ctx.createLinearGradient(0, 0, 100, 100);
-        grad.addColorStop(0, '#00f3ff');
-        grad.addColorStop(0.2, baseColor);
-        grad.addColorStop(0.5, '#ff00ea');
-        grad.addColorStop(0.8, baseColor);
-        grad.addColorStop(1, '#00f3ff');
+        grad.addColorStop(0, '#ff00ea');
+        grad.addColorStop(0.2, '#00f3ff');
+        grad.addColorStop(0.4, '#00ff00');
+        grad.addColorStop(0.6, '#ffff00');
+        grad.addColorStop(0.8, '#ff0000');
+        grad.addColorStop(1, '#ff00ea');
 
         ctx.strokeStyle = grad;
-        ctx.shadowColor = baseColor === 'white' ? 'rgba(255,255,255,0.8)' : baseColor;
-        ctx.shadowBlur = 12;
-      } else if (params.material === 'neon') {
-        ctx.strokeStyle = baseColor;
+        ctx.shadowColor = 'rgba(255,255,255,0.5)';
+        ctx.shadowBlur = 20;
+      } else if (params.material === 'ethereal') {
+        const grad = ctx.createLinearGradient(0, 0, 0, 100);
+        grad.addColorStop(0, baseColor);
+        grad.addColorStop(0.7, `${baseColor}66`);
+        grad.addColorStop(1, `${baseColor}00`);
+
+        ctx.strokeStyle = grad;
         ctx.shadowColor = baseColor;
-        ctx.shadowBlur = 40;
+        ctx.shadowBlur = 30;
+        ctx.shadowOffsetY = 20;
       }
-      
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
     };
 
     const getDynamicFontSize = (text: string, maxWidth: number, maxHeight: number, bannerScale: number) => {
@@ -304,10 +311,13 @@ export default function App() {
     const isTransSVG = format === 'svg-transparent';
 
     const materialStroke = params.material === 'chrome' ? 'url(#chromeGradient)' 
-                         : params.material === 'holographic' ? 'url(#holoGradient)'
+                         : params.material === 'iridescent' ? 'url(#iriGradient)'
+                         : params.material === 'ethereal' ? 'url(#etherealGradient)'
                          : baseColor;
                          
-    const neonGlow = params.material === 'neon' ? 'filter: url(#neonGlow);' : 'filter: url(#chromeGlow);';
+    const iriGlow = params.material === 'iridescent' ? 'filter: url(#iriGlow);' : '';
+    const etherealGlow = params.material === 'ethereal' ? 'filter: url(#etherealGlow);' : '';
+    const activeGlow = params.material === 'iridescent' ? iriGlow : params.material === 'ethereal' ? etherealGlow : 'filter: url(#chromeGlow);';
 
     const svgString = `
 <svg width="1000" height="${isTransSVG ? 1000 : 1400}" viewBox="0 0 1000 ${isTransSVG ? 1000 : 1400}" xmlns="http://www.w3.org/2000/svg">
@@ -320,12 +330,18 @@ export default function App() {
       <stop offset="75%" style="stop-color:${baseColor};stop-opacity:1" />
       <stop offset="100%" style="stop-color:#050505;stop-opacity:1" />
     </linearGradient>
-    <linearGradient id="holoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#00f3ff;stop-opacity:1" />
-      <stop offset="20%" style="stop-color:${baseColor};stop-opacity:1" />
-      <stop offset="50%" style="stop-color:#ff00ea;stop-opacity:1" />
-      <stop offset="80%" style="stop-color:${baseColor};stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#00f3ff;stop-opacity:1" />
+    <linearGradient id="iriGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff00ea;stop-opacity:1" />
+      <stop offset="20%" style="stop-color:#00f3ff;stop-opacity:1" />
+      <stop offset="40%" style="stop-color:#00ff00;stop-opacity:1" />
+      <stop offset="60%" style="stop-color:#ffff00;stop-opacity:1" />
+      <stop offset="80%" style="stop-color:#ff0000;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ff00ea;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="etherealGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:${baseColor};stop-opacity:1" />
+      <stop offset="70%" style="stop-color:${baseColor};stop-opacity:0.4" />
+      <stop offset="100%" style="stop-color:${baseColor};stop-opacity:0" />
     </linearGradient>
     <filter id="chromeGlow" x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur stdDeviation="1.5" result="blur1" />
@@ -336,10 +352,22 @@ export default function App() {
         <feMergeNode in="SourceGraphic" />
       </feMerge>
     </filter>
-    <filter id="neonGlow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="3" result="blur1" />
-      <feGaussianBlur stdDeviation="10" result="blur2" />
-      <feGaussianBlur stdDeviation="30" result="blur3" />
+    <filter id="etherealGlow" x="-100%" y="-100%" width="300%" height="400%">
+      <feGaussianBlur stdDeviation="1, 15" result="fogg" />
+      <feOffset dx="0" dy="25" in="fogg" result="off" />
+      <feComponentTransfer in="off">
+         <feFuncA type="linear" slope="0.5" />
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <filter id="iriGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="blur1" />
+      <feGaussianBlur stdDeviation="6" result="blur2" />
+      <feGaussianBlur stdDeviation="15" result="blur3" />
+      <feColorMatrix type="saturate" values="2" />
       <feMerge>
         <feMergeNode in="blur3" />
         <feMergeNode in="blur2" />
@@ -357,7 +385,7 @@ export default function App() {
   </defs>
   ${!isTransSVG ? `<rect width="1000" height="1400" fill="#000" />` : ''}
   <g transform="scale(10)">
-    <g stroke="${materialStroke}" style="${neonGlow}" stroke-width="${sw}" stroke-linecap="${cap}" stroke-linejoin="${join}" fill="none" ${dash ? `stroke-dasharray="${dash}"` : ''}>
+    <g stroke="${materialStroke}" style="${activeGlow}" stroke-width="${sw}" stroke-linecap="${cap}" stroke-linejoin="${join}" fill="none" ${dash ? `stroke-dasharray="${dash}"` : ''}>
       ${currentGlyph.paths.map(p => `<path d="${p}" />`).join('\n      ')}
     </g>
   </g>
@@ -562,7 +590,7 @@ export default function App() {
   };
 
   const themes: GlyphTheme[] = ['minimal', 'mystic', 'technical', 'organic'];
-  const materials: GlyphMaterial[] = ['chrome', 'neon', 'holographic'];
+  const materials: GlyphMaterial[] = ['chrome', 'ethereal', 'iridescent'];
 
   return (
     <div className="h-[100dvh] w-full flex flex-col bg-elegant-bg text-elegant-ink font-sans overflow-hidden">
@@ -593,40 +621,52 @@ export default function App() {
           <div className="w-5 h-5 md:w-6 md:h-6 border-2 border-blue-500 rotate-45 flex items-center justify-center shrink-0">
             <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-blue-500"></div>
           </div>
-          <span className="font-medium tracking-[0.2em] text-[8px] md:text-[10px] uppercase text-white hidden sm:block">Epiglyph Genesis Creator</span>
-          <span className="font-medium tracking-[0.2em] text-[8px] uppercase text-white sm:hidden">Epiglyph Genesis</span>
+          <span className="font-medium tracking-[0.2em] text-[8px] md:text-[10px] uppercase text-white hidden sm:block">EpiGlyph Creator</span>
+          <span className="font-medium tracking-[0.2em] text-[8px] uppercase text-white sm:hidden">EpiGlyph</span>
         </div>
-        <div className="flex items-center gap-4 md:gap-8 text-[9px] md:text-[10px] uppercase tracking-widest font-semibold text-zinc-500">
+        <div className="flex items-center gap-3 md:gap-5 text-[10px] uppercase font-bold tracking-[0.2em] h-full">
           <button 
             onClick={() => setActiveTab('system')}
-            className={`pb-1 transition-colors ${activeTab === 'system' ? 'text-blue-400 border-b border-blue-400 cursor-default' : 'hover:text-white'}`}
+            className={`relative px-6 py-2 h-9 flex items-center transition-all duration-500 group overflow-hidden border-x border-t ${activeTab === 'system' ? 'border-blue-500/50 text-blue-400 bg-blue-500/10 shadow-[0_-5px_15px_rgba(59,130,246,0.1)]' : 'border-white/5 text-zinc-500 hover:text-white hover:border-white/10 hover:bg-white/5'}`}
           >
-            System
+            <div className={`absolute top-0 left-0 w-full h-[2px] bg-blue-500 transition-all duration-500 ${activeTab === 'system' ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'}`} />
+            <span className="relative z-10">Creation Lab</span>
+            {activeTab === 'system' && (
+              <motion.div layoutId="nav-bg" className="absolute inset-0 bg-gradient-to-b from-blue-500/10 to-transparent" />
+            )}
           </button>
+
           <button 
             onClick={() => {
               setActiveTab('library');
               setNewGlyphPulse(false);
             }}
-            className={`pb-1 transition-colors relative ${activeTab === 'library' ? 'text-blue-400 border-b border-blue-400 cursor-default' : 'hover:text-white'} ${newGlyphPulse && activeTab !== 'library' ? 'text-green-400' : ''}`}
+            className={`relative px-6 py-2 h-9 flex items-center transition-all duration-500 group overflow-hidden border-x border-t ${activeTab === 'library' ? 'border-blue-500/50 text-blue-400 bg-blue-500/10 shadow-[0_-5px_15px_rgba(59,130,246,0.1)]' : 'border-white/5 text-zinc-500 hover:text-white hover:border-white/10 hover:bg-white/5'} ${newGlyphPulse && activeTab !== 'library' ? 'border-green-500/50 text-green-400' : ''}`}
           >
-            Library
-            {newGlyphPulse && activeTab !== 'library' && (
-              <span className="absolute -inset-2 bg-green-500/20 shadow-[0_0_10px_#22c55e] rounded-full animate-pulse blur-sm -z-10 block pointer-events-none"></span>
+            <div className={`absolute top-0 left-0 w-full h-[2px] transition-all duration-500 ${activeTab === 'library' ? 'scale-x-100 bg-blue-500' : (newGlyphPulse ? 'scale-x-100 bg-green-500' : 'scale-x-0 bg-blue-500 group-hover:scale-x-100')}`} />
+            <span className="relative z-10 flex items-center gap-2">
+              EpiGlyph VAULT
+              {newGlyphPulse && activeTab !== 'library' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_#22c55e]" />
+              )}
+            </span>
+            {activeTab === 'library' && (
+              <motion.div layoutId="nav-bg" className="absolute inset-0 bg-gradient-to-b from-blue-500/10 to-transparent" />
             )}
           </button>
           
-          <div className="relative group/export">
+          <div className="relative group/export h-9">
             <button 
               disabled={!currentGlyph || isExporting}
-              className={`hover:text-white transition-colors flex items-center gap-1.5 md:gap-2 disabled:opacity-50 disabled:cursor-not-allowed py-2 ${isExporting ? 'text-blue-400' : ''}`}
+              className={`relative h-full px-6 flex items-center gap-2.5 border-x border-t transition-all duration-500 disabled:opacity-30 disabled:cursor-not-allowed font-black tracking-[0.25em] ${isExporting ? 'border-blue-500 bg-blue-500/20 text-blue-400 shadow-[0_0_30px_rgba(59,130,246,0.3)]' : 'border-yellow-600/50 bg-yellow-600/5 text-yellow-500 hover:bg-yellow-500 hover:text-black hover:shadow-[0_-5px_20px_rgba(234,179,8,0.2)] hover:border-yellow-400'}`}
             >
+              <div className="absolute top-0 left-0 w-full h-[2px] bg-yellow-400 opacity-0 group-hover/export:opacity-100 transition-opacity" />
               {isExporting ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
-                <Download className="w-3 h-3" />
+                <Download className="w-3.5 h-3.5 transition-transform group-hover/export:-translate-y-0.5" />
               )}
-              <span className="hidden sm:inline">{isExporting ? 'Processing...' : 'Export'}</span>
+              <span className="hidden sm:inline">{isExporting ? 'SAVING...' : 'SAVE AS'}</span>
             </button>
             {!isExporting && (
               <div className="absolute right-0 top-full hidden group-hover/export:flex flex-col bg-black border border-white/10 p-2 min-w-[200px] shadow-2xl z-50">
@@ -679,7 +719,13 @@ export default function App() {
           )}
         </div>
 
-          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border border-white/10"></div>
+          <button 
+            onClick={() => window.location.reload()}
+            title="Refresh"
+            className="h-8 w-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border border-white/10 flex items-center justify-center text-zinc-500 hover:text-white hover:border-white/30 transition-all hover:rotate-180 duration-500 shadow-lg group/reload"
+          >
+            <RefreshCw className="w-3.5 h-3.5 group-hover/reload:scale-110 transition-transform" />
+          </button>
         </div>
       </nav>
 
@@ -911,8 +957,8 @@ export default function App() {
         <section className="flex-1 relative bg-black flex flex-col p-0 min-w-[300px] overflow-y-auto custom-scrollbar">
           <div className="absolute inset-0 opacity-10 grid-pattern pointer-events-none sticky top-0"></div>
           
-          <div className="flex-1 flex flex-col items-center justify-start relative min-h-max py-6 lg:py-12 w-full">
-            <div className="my-auto w-full flex justify-center items-center">
+          <div className="flex-1 flex flex-col items-center justify-center relative min-h-max py-2 lg:py-4 w-full">
+            <div className="w-full flex justify-center items-center">
               <GlyphDisplay 
                 glyph={currentGlyph} 
                 isLoading={isLoading} 
@@ -928,7 +974,7 @@ export default function App() {
           </div>
 
           {/* Status Bar */}
-          <div className="p-4 lg:p-8 flex justify-between items-end text-[8px] lg:text-[9px] text-zinc-500 font-mono tracking-widest relative z-10 shrink-0 hidden sm:flex sticky bottom-0 bg-gradient-to-t from-black to-transparent">
+          <div className="p-2 lg:p-4 flex justify-between items-end text-[8px] lg:text-[9px] text-zinc-500 font-mono tracking-widest relative z-10 shrink-0 hidden sm:flex sticky bottom-0 bg-gradient-to-t from-black to-transparent">
             <div>COORD: 40.7128N / 74.0060W</div>
             <div className="flex gap-4">
               <span>SEED: {currentGlyph ? currentGlyph.id.toUpperCase() : "INIT-00X"}</span>
@@ -938,10 +984,10 @@ export default function App() {
         </section>
 
         {/* Right Sidebar: Library */}
-        <aside className="hidden xl:flex w-[200px] lg:w-[256px] shrink-0 bg-elegant-surface border-l border-white/5 p-4 lg:p-6 flex-col overflow-hidden relative z-20">
-          <label className="block text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-6 font-bold italic">Recent Fragments</label>
-          <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-            <div className="grid grid-cols-2 gap-3">
+        <aside className="hidden xl:flex w-[100px] lg:w-[120px] shrink-0 bg-elegant-surface border-l border-white/5 p-3 flex-col overflow-hidden relative z-20">
+          <label className="block text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-6 font-bold italic text-center">Recent</label>
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            <div className="grid grid-cols-1 gap-3">
               {history.map((glyph) => (
                 <button
                   key={glyph.id}
