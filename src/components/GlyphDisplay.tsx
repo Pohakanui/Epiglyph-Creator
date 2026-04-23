@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { motion } from "motion/react";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { GlyphData, GlyphTheme, GlyphMaterial } from "../types";
 import FragmentParticles from "./FragmentParticles";
 
@@ -30,6 +31,24 @@ export default function GlyphDisplay({
   particleSpeed = 50,
   humSpeed = 50 
 }: GlyphDisplayProps) {
+  const [isShattered, setIsShattered] = useState(false);
+  
+  // Auto-reform after shatter
+  useEffect(() => {
+    if (isShattered) {
+      const timer = setTimeout(() => {
+        setIsShattered(false);
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [isShattered]);
+
+  const handleShatter = () => {
+    if (!isShattered && glyph) {
+      setIsShattered(true);
+    }
+  };
+
   const synthesisStages = [
     "Scanning Spectrum",
     "Extracting Fragments",
@@ -235,17 +254,20 @@ export default function GlyphDisplay({
       />
       
       <motion.div 
+        onClick={handleShatter}
         whileHover={{ 
-          scale: 1.05,
+          scale: 1.08,
+          filter: styles.glow + " drop-shadow(0 0 20px " + baseColor + "33)"
         }}
-        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+        whileTap={{ scale: 0.95 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
         className="relative w-full max-w-[320px] md:max-w-[360px] aspect-square flex items-center justify-center cursor-crosshair group/glyph mt-4"
       >
         {/* Hover Glow Effect */}
         <motion.div 
-          className="absolute inset-0 rounded-full opacity-0 group-hover/glyph:opacity-100 transition-opacity duration-300 blur-2xl"
+          className="absolute inset-[10%] rounded-full opacity-0 group-hover/glyph:opacity-100 transition-opacity duration-500 blur-3xl"
           style={{ 
-            background: `radial-gradient(circle, ${baseColor === 'white' ? 'rgba(59,130,246,0.1)' : baseColor + '1A'} 0%, transparent 70%)` 
+            background: `radial-gradient(circle, ${baseColor === 'white' ? 'rgba(59,130,246,0.3)' : baseColor + '4D'} 0%, transparent 80%)` 
           }}
         />
 
@@ -320,11 +342,24 @@ export default function GlyphDisplay({
                 strokeLinecap={theme === 'organic' ? 'round' : 'square'}
                 strokeLinejoin={theme === 'organic' ? 'round' : 'miter'}
                 initial={{ pathLength: 0, opacity: 0 }}
-                animate={{ pathLength: 1, opacity: 1 }}
-                transition={{
-                  duration: 2.5,
-                  delay: index * 0.3,
-                  ease: "easeInOut"
+                animate={isShattered ? {
+                  pathLength: 0.2 + Math.random() * 0.3,
+                  opacity: [1, 0],
+                  x: (Math.random() - 0.5) * 150,
+                  y: (Math.random() - 0.5) * 150,
+                  rotate: (Math.random() - 0.5) * 720,
+                  transition: { duration: 1.5, ease: "circOut" }
+                } : { 
+                  pathLength: 1, 
+                  opacity: 1,
+                  x: 0,
+                  y: 0,
+                  rotate: 0,
+                  transition: {
+                    duration: 2.5,
+                    delay: index * 0.05,
+                    ease: "easeInOut"
+                  }
                 }}
               />
             ))}

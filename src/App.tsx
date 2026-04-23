@@ -21,6 +21,7 @@ export default function App() {
   const [isGeneratingVariations, setIsGeneratingVariations] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const [loadingStage, setLoadingStage] = useState(0);
   const [activeTab, setActiveTab] = useState<'system' | 'library'>('system');
   const [newGlyphPulse, setNewGlyphPulse] = useState(false);
@@ -717,12 +718,19 @@ export default function App() {
 
     const mimeType = format.startsWith('png') ? 'image/png' : 'image/jpeg';
     const quality = format === 'jpg' ? 0.85 : 1;
-    const dataUrl = canvas.toDataURL(mimeType, quality);
-    const link = document.createElement('a');
-    link.href = dataUrl;
-    link.download = `glyph-${currentGlyph.word.toLowerCase()}.${format.startsWith('png') ? 'png' : 'jpg'}`;
-    link.click();
-    setTimeout(() => setIsExporting(false), 500);
+    
+    canvas.toBlob((blob) => {
+      if (!blob || !currentGlyph) return;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `glyph-${currentGlyph.word.toLowerCase()}.${format.startsWith('png') ? 'png' : 'jpg'}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setTimeout(() => setIsExporting(false), 500);
+    }, mimeType, quality);
   };
 
   const themes: GlyphTheme[] = ['minimal', 'mystic', 'technical', 'organic'];
@@ -796,69 +804,79 @@ export default function App() {
             )}
           </button>
           
-          <div className="relative group/export h-9">
+          <div className="relative h-9">
             <button 
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              onBlur={() => setTimeout(() => setShowExportMenu(false), 200)}
               disabled={!currentGlyph || isExporting}
-              className={`relative h-full px-6 flex items-center gap-2.5 border-x border-t transition-all duration-500 disabled:opacity-30 disabled:cursor-not-allowed font-black tracking-[0.25em] ${isExporting ? 'border-blue-500 bg-blue-500/20 text-blue-400 shadow-[0_0_30px_rgba(59,130,246,0.3)]' : 'border-yellow-600/50 bg-yellow-600/5 text-yellow-500 hover:bg-yellow-500 hover:text-black hover:shadow-[0_-5px_20px_rgba(234,179,8,0.2)] hover:border-yellow-400'}`}
+              className={`relative h-full px-6 flex items-center gap-2.5 border-x border-t transition-all duration-500 disabled:opacity-30 disabled:cursor-not-allowed font-black tracking-[0.25em] ${isExporting ? 'border-blue-500 bg-blue-500/20 text-blue-400 shadow-[0_0_30px_rgba(59,130,246,0.3)]' : 'border-yellow-600/50 bg-yellow-600/5 text-yellow-500 hover:bg-yellow-500 hover:text-black hover:shadow-[0_-5px_20px_rgba(234,179,8,0.2)] hover:border-yellow-400'} ${showExportMenu ? 'bg-yellow-500 text-black' : ''}`}
             >
               <div className="absolute top-0 left-0 w-full h-[2px] bg-yellow-400 opacity-0 group-hover/export:opacity-100 transition-opacity" />
               {isExporting ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
-                <Download className="w-3.5 h-3.5 transition-transform group-hover/export:-translate-y-0.5" />
+                <Download className={`w-3.5 h-3.5 transition-transform ${showExportMenu ? '-translate-y-0.5' : 'group-hover/export:-translate-y-0.5'}`} />
               )}
               <span className="hidden sm:inline">{isExporting ? 'SAVING...' : 'SAVE AS'}</span>
+              <span className="sm:hidden">{isExporting ? '...' : 'SAVE'}</span>
             </button>
-            {!isExporting && (
-              <div className="absolute right-0 top-full hidden group-hover/export:flex flex-col bg-black border border-white/10 p-2 min-w-[200px] shadow-2xl z-50">
-              <div className="text-[7px] text-zinc-600 px-3 py-1 uppercase tracking-tighter border-b border-white/5">Static Formats</div>
-              <button 
-                onClick={() => handleExport('svg')}
-                className="w-full text-left py-2 px-3 hover:bg-blue-500 hover:text-white transition-colors text-[9px]"
-              >
-                SVG (Vector w/ Data Plate)
-              </button>
-              <button 
-                onClick={() => handleExport('svg-transparent')}
-                className="w-full text-left py-2 px-3 hover:bg-blue-500 hover:text-white transition-colors text-[9px]"
-              >
-                SVG (Transparent Glyph Only)
-              </button>
-              <button 
-                onClick={() => handleExport('png')}
-                className="w-full text-left py-2 px-3 hover:bg-blue-500 hover:text-white transition-colors text-[9px]"
-              >
-                PNG (High Res w/ Data Plate)
-              </button>
-              <button 
-                onClick={() => handleExport('png-transparent')}
-                className="w-full text-left py-2 px-3 hover:bg-blue-500 hover:text-white transition-colors text-[9px]"
-              >
-                PNG (Transparent Glyph Only)
-              </button>
-              <button 
-                onClick={() => handleExport('jpg')}
-                className="w-full text-left py-2 px-3 hover:bg-blue-500 hover:text-white transition-colors text-[9px]"
-              >
-                JPG (Web)
-              </button>
-              
-              <div className="text-[7px] text-zinc-600 px-3 py-1 mt-1 uppercase tracking-tighter border-y border-white/5 bg-white/5">Dynamic Formats</div>
-              <button 
-                onClick={() => handleExport('gif')}
-                className="w-full text-left py-2 px-3 hover:bg-blue-500 hover:text-white transition-colors text-[9px]"
-              >
-                GIF Animation
-              </button>
-              <button 
-                onClick={() => handleExport('mp4')}
-                className="w-full text-left py-2 px-3 hover:bg-blue-500 hover:text-white transition-colors text-[9px]"
-              >
-                MP4 Video
-              </button>
-            </div>
-          )}
-        </div>
+            {(showExportMenu && !isExporting) && (
+              <div className="absolute right-0 top-full flex flex-col bg-black border border-white/10 p-2 min-w-[220px] shadow-2xl z-50 animate-in fade-in slide-in-from-top-1">
+                <div className="text-[7px] text-zinc-600 px-3 py-1 uppercase tracking-tighter border-b border-white/5 flex justify-between items-center">
+                  <span>Static Formats</span>
+                  <span className="text-[6px] text-blue-500/50 font-mono">High Precision</span>
+                </div>
+                <button 
+                  onClick={() => { handleExport('png'); setShowExportMenu(false); }}
+                  className="w-full text-left py-2.5 px-3 hover:bg-blue-500 hover:text-white transition-colors text-[10px] flex justify-between items-center group/opt"
+                >
+                  <span>PNG Image (Best for Mobile)</span>
+                  <ArrowRight className="w-2.5 h-2.5 opacity-0 group-hover/opt:opacity-100 -translate-x-2 group-hover/opt:translate-x-0 transition-all" />
+                </button>
+                <button 
+                  onClick={() => { handleExport('jpg'); setShowExportMenu(false); }}
+                  className="w-full text-left py-2.5 px-3 hover:bg-blue-500 hover:text-white transition-colors text-[10px] flex justify-between items-center group/opt"
+                >
+                  <span>JPG Image (Compressed)</span>
+                  <ArrowRight className="w-2.5 h-2.5 opacity-0 group-hover/opt:opacity-100 -translate-x-2 group-hover/opt:translate-x-0 transition-all" />
+                </button>
+                <button 
+                  onClick={() => { handleExport('svg'); setShowExportMenu(false); }}
+                  className="w-full text-left py-2.5 px-3 hover:bg-blue-500 hover:text-white transition-colors text-[10px] flex justify-between items-center group/opt"
+                >
+                  <span>SVG Vector (Full Plate)</span>
+                  <ArrowRight className="w-2.5 h-2.5 opacity-0 group-hover/opt:opacity-100 -translate-x-2 group-hover/opt:translate-x-0 transition-all" />
+                </button>
+                <button 
+                  onClick={() => { handleExport('png-transparent'); setShowExportMenu(false); }}
+                  className="w-full text-left py-2.5 px-3 hover:bg-blue-500 hover:text-white transition-colors text-[10px] flex justify-between items-center group/opt"
+                >
+                  <span>PNG (Transparent Glyph)</span>
+                  <ArrowRight className="w-2.5 h-2.5 opacity-0 group-hover/opt:opacity-100 -translate-x-2 group-hover/opt:translate-x-0 transition-all" />
+                </button>
+                
+                <div className="text-[7px] text-zinc-600 px-3 py-1 mt-1 uppercase tracking-tighter border-y border-white/5 bg-white/5">Sequence Formats</div>
+                <button 
+                  onClick={() => { handleExport('gif'); setShowExportMenu(false); }}
+                  className="w-full text-left py-2.5 px-3 hover:bg-blue-500 hover:text-white transition-colors text-[10px] flex justify-between items-center group/opt"
+                >
+                  <span>GIF Animation</span>
+                  <ArrowRight className="w-2.5 h-2.5 opacity-0 group-hover/opt:opacity-100 -translate-x-2 group-hover/opt:translate-x-0 transition-all" />
+                </button>
+                <button 
+                  onClick={() => { handleExport('mp4'); setShowExportMenu(false); }}
+                  className="w-full text-left py-2.5 px-3 hover:bg-blue-500 hover:text-white transition-colors text-[10px] flex justify-between items-center group/opt"
+                >
+                  <span>MP4 Video</span>
+                  <ArrowRight className="w-2.5 h-2.5 opacity-0 group-hover/opt:opacity-100 -translate-x-2 group-hover/opt:translate-x-0 transition-all" />
+                </button>
+
+                <div className="mt-2 p-2 bg-blue-500/5 border border-blue-500/20 text-[7px] text-zinc-500 leading-tight">
+                  TIP: On mobile, if download doesn't start, try different formats or check browser downloads.
+                </div>
+              </div>
+            )}
+          </div>
 
           <button 
             onClick={() => window.location.reload()}
